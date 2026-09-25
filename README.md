@@ -9,7 +9,7 @@ The service keeps X OAuth credentials on the server, exposes an OAuth flow for C
 ```text
 User
  │
- ├── Connect X account
+ ├── Connect X account 
  │
  ▼
 Your X Publisher Service
