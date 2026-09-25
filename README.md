@@ -1,11 +1,12 @@
-X → ChatGPT Publisher
+# X → ChatGPT Publisher
 
 A TypeScript service that lets a ChatGPT Action publish posts to a user's authenticated X (x.com) account.
 
 The service keeps X OAuth credentials on the server, exposes an OAuth flow for ChatGPT, and provides a small authenticated API for creating posts.
 
-Architecture
+## Architecture
 
+```text
 User
  │
  ├── Connect X account
@@ -27,79 +28,73 @@ Your service
  │ X user-context OAuth token
  ▼
 X API v2
+```
 
-Features
+## Features
 
-X OAuth 2.0 Authorization Code + PKCE
+- X OAuth 2.0 Authorization Code + PKCE
+- X user-context authentication
+- Encrypted X access and refresh tokens at rest
+- Short-lived service tokens for ChatGPT
+- Single-use, expiring OAuth authorization codes
+- Exact ChatGPT redirect-URI allowlisting
+- Publish posts with `POST /v1/x/posts`
+- Read the connected account with `GET /v1/x/me`
+- Automatic X access-token refresh when a refresh token is available
+- SQLite persistence
+- Docker and Docker Compose support
+- OpenAPI 3.1 definition for a ChatGPT Action
 
-X user-context authentication
+## Requirements
 
-Encrypted X access and refresh tokens at rest
-
-Short-lived service tokens for ChatGPT
-
-Single-use, expiring OAuth authorization codes
-
-Exact ChatGPT redirect-URI allowlisting
-
-Publish posts with POST /v1/x/posts
-
-Read the connected account with GET /v1/x/me
-
-Automatic X access-token refresh when a refresh token is available
-
-SQLite persistence
-
-Docker and Docker Compose support
-
-OpenAPI 3.1 definition for a ChatGPT Action
-
-Requirements
-
-Node.js 20 or newer
-
-An X Developer account/application with API access appropriate for posting
-
-A public HTTPS hostname for production
-
-A ChatGPT account that can create/configure Actions
+- Node.js 20 or newer
+- An X Developer account/application with API access appropriate for posting
+- A public HTTPS hostname for production
+- A ChatGPT account that can create/configure Actions
 
 For local development, use an HTTPS tunnel such as Cloudflare Tunnel or ngrok.
 
-1. Install
+## 1. Install
 
+```bash
 git clone <your-repository>
 cd x-chatgpt-plugin
 
 npm install
 cp .env.example .env
 mkdir -p data
+```
 
-2. Create the X Developer App
+## 2. Create the X Developer App
 
 Create an application in the X Developer Portal and enable OAuth 2.0.
 
 Configure the X OAuth callback URL as:
 
+```text
 https://YOUR_DOMAIN/auth/x/callback
+```
 
 Use these scopes:
 
+```text
 tweet.read
 tweet.write
 users.read
 offline.access
+```
 
-Copy the X OAuth client ID and client secret into .env.
+Copy the X OAuth client ID and client secret into `.env`.
 
-X API product access, pricing, endpoint availability, rate limits, and OAuth requirements can change. Verify the current requirements in the X Developer Portal before production deployment.
+> X API product access, pricing, endpoint availability, rate limits, and OAuth requirements can change. Verify the current requirements in the X Developer Portal before production deployment.
 
-3. Configure environment variables
+## 3. Configure environment variables
 
-Copy .env.example to .env and fill in the values.
+Copy `.env.example` to `.env` and fill in the values.
 
 Example:
 
+```dotenv
 PORT=3000
 PUBLIC_BASE_URL=https://x-publisher.example.com
 DATABASE_PATH=./data/app.db
@@ -116,54 +111,75 @@ CHATGPT_ALLOWED_REDIRECT_URIS=https://chatgpt.com/aip/g-REPLACE/actions/oauth/ca
 
 TOKEN_ENCRYPTION_KEY_B64=replace-me
 COOKIE_SECURE=true
+```
 
-Generate the token encryption key
+### Generate the token encryption key
 
 Generate exactly 32 random bytes and encode them as base64:
 
+```bash
 node -e 'console.log(require("crypto").randomBytes(32).toString("base64"))'
+```
 
 Put the result in:
 
+```text
 TOKEN_ENCRYPTION_KEY_B64
+```
 
-Generate the ChatGPT client secret
+### Generate the ChatGPT client secret
 
+```bash
 node -e 'console.log(require("crypto").randomBytes(48).toString("base64url"))'
+```
 
 Put the result in:
 
+```text
 CHATGPT_CLIENT_SECRET
+```
 
 Keep these secrets private.
 
-4. Start the service
+## 4. Start the service
 
 Development:
 
+```bash
 npm run dev
+```
 
 Production:
 
+```bash
 npm start
+```
 
 Health check:
 
+```bash
 curl http://localhost:3000/health
+```
 
 Expected response:
 
+```json
 {"ok":true}
+```
 
 The OpenAPI document is available at:
 
+```text
 https://YOUR_DOMAIN/openapi.yaml
+```
 
-5. Connect the X account
+## 5. Connect the X account
 
 Open:
 
+```text
 https://YOUR_DOMAIN/connect/x
+```
 
 Sign in to X and authorize the application.
 
@@ -171,121 +187,143 @@ After authorization, the service stores the X credentials encrypted at rest and 
 
 The connected-account page is:
 
+```text
 https://YOUR_DOMAIN/connected
+```
 
-6. Configure the ChatGPT Action
+## 6. Configure the ChatGPT Action
 
 Create a custom GPT and add an Action.
 
 Import this OpenAPI URL:
 
+```text
 https://YOUR_DOMAIN/openapi.yaml
+```
 
 Configure OAuth Authorization Code authentication.
 
-Authorization URL
+### Authorization URL
 
+```text
 https://YOUR_DOMAIN/oauth/authorize
+```
 
-Token URL
+### Token URL
 
+```text
 https://YOUR_DOMAIN/oauth/token
+```
 
-Client ID
+### Client ID
 
 Use:
 
+```text
 CHATGPT_CLIENT_ID
+```
 
-Client Secret
+### Client Secret
 
 Use:
 
+```text
 CHATGPT_CLIENT_SECRET
+```
 
-Scope
+### Scope
 
+```text
 x.post
+```
 
 The ChatGPT Action UI will generate an OAuth callback URL.
 
 Copy that exact callback URL and add it to:
 
+```text
 CHATGPT_ALLOWED_REDIRECT_URIS
+```
 
 For example:
 
+```dotenv
 CHATGPT_ALLOWED_REDIRECT_URIS=https://chatgpt.com/aip/g-xxxxxxxx/actions/oauth/callback
+```
 
 Restart the service after changing environment variables.
 
-7. Authorize ChatGPT
+## 7. Authorize ChatGPT
 
 When the Action first needs authorization:
 
-ChatGPT opens the service's /oauth/authorize endpoint.
-
-The service checks the ChatGPT OAuth client and callback URL.
-
-If necessary, the user is asked to connect an X account.
-
-The service shows an explicit consent page.
-
-The user approves ChatGPT access.
-
-The service issues a short-lived authorization code.
-
-ChatGPT exchanges that code at /oauth/token.
-
-ChatGPT receives a short-lived service access token.
+1. ChatGPT opens the service's `/oauth/authorize` endpoint.
+2. The service checks the ChatGPT OAuth client and callback URL.
+3. If necessary, the user is asked to connect an X account.
+4. The service shows an explicit consent page.
+5. The user approves ChatGPT access.
+6. The service issues a short-lived authorization code.
+7. ChatGPT exchanges that code at `/oauth/token`.
+8. ChatGPT receives a short-lived service access token.
 
 The X access token itself is never returned to ChatGPT.
 
-8. Publish a post
+## 8. Publish a post
 
 The ChatGPT Action calls:
 
+```http
 POST /v1/x/posts
 Authorization: Bearer <chatgpt-service-token>
 Content-Type: application/json
+```
 
 Request:
 
+```json
 {
   "text": "Hello from ChatGPT!"
 }
+```
 
 Successful response:
 
+```json
 {
   "id": "1234567890123456789",
   "text": "Hello from ChatGPT!",
   "url": "https://x.com/i/web/status/1234567890123456789"
 }
+```
 
 The post is sent to X with the authenticated user's X credentials.
 
-9. Get the connected X account
+## 9. Get the connected X account
 
 Request:
 
+```http
 GET /v1/x/me
 Authorization: Bearer <chatgpt-service-token>
+```
 
 Example response:
 
+```json
 {
   "id": "123456789",
   "username": "example",
   "name": "Example User"
 }
+```
 
-10. Recommended ChatGPT Action behavior
+## 10. Recommended ChatGPT Action behavior
 
 The Action should be instructed to treat publishing as an external side effect.
 
 A suitable instruction is:
 
+```text
 You can publish posts to the user's connected X account using the X Publisher Action.
 
 Before publishing, show the exact text that will be posted and ask the user for confirmation unless the user has explicitly requested immediate publication.
@@ -293,23 +331,29 @@ Before publishing, show the exact text that will be posted and ask the user for 
 Do not claim that a post was published unless the Action returns a successful response.
 
 Use the exact text provided by the user unless they ask you to rewrite it.
+```
 
 This helps prevent accidental publication.
 
-11. Docker deployment
+## 11. Docker deployment
 
 Build:
 
+```bash
 docker compose build
+```
 
 Start:
 
+```bash
 docker compose up -d
+```
 
-The service listens on port 3000 inside the container.
+The service listens on port `3000` inside the container.
 
 Example reverse-proxy setup:
 
+```text
 Internet
    │
    │ HTTPS
@@ -319,222 +363,181 @@ Reverse proxy
    │ HTTP :3000
    ▼
 X Publisher container
+```
 
 Use a real TLS certificate in front of the application.
 
 Do not expose the service directly over plain HTTP in production.
 
-12. Database
+## 12. Database
 
 The default SQLite database is:
 
+```text
 ./data/app.db
+```
 
 The database contains:
 
-Connected X account metadata
-
-Encrypted X access tokens
-
-Encrypted X refresh tokens
-
-OAuth authorization transactions
-
-Short-lived authorization codes
+- Connected X account metadata
+- Encrypted X access tokens
+- Encrypted X refresh tokens
+- OAuth authorization transactions
+- Short-lived authorization codes
 
 Back up the database securely.
 
 The encryption key is required to decrypt the X credentials, so protect it separately from the database.
 
-13. Security model
+## 13. Security model
 
-X credentials
+### X credentials
 
 X credentials are encrypted with AES-256-GCM before being stored.
 
 They are decrypted only on the server when the service needs to call X.
 
-ChatGPT credentials
+### ChatGPT credentials
 
 ChatGPT receives a short-lived service token rather than the X token.
 
 The service token:
 
-expires after one hour
+- expires after one hour
+- identifies the connected local user
+- is signed by a server-side key derived from `CHATGPT_CLIENT_SECRET`
 
-identifies the connected local user
-
-is signed by a server-side key derived from CHATGPT_CLIENT_SECRET
-
-OAuth authorization codes
+### OAuth authorization codes
 
 Authorization codes:
 
-are stored only as hashes
+- are stored only as hashes
+- expire after five minutes
+- can only be used once
+- are bound to the client ID
+- are bound to the redirect URI
+- are bound to the PKCE challenge
 
-expire after five minutes
-
-can only be used once
-
-are bound to the client ID
-
-are bound to the redirect URI
-
-are bound to the PKCE challenge
-
-Redirect URIs
+### Redirect URIs
 
 Only redirect URIs explicitly listed in:
 
+```text
 CHATGPT_ALLOWED_REDIRECT_URIS
+```
 
 are accepted.
 
 Never wildcard this list.
 
-14. Production hardening
+## 14. Production hardening
 
 Before exposing the service to untrusted users, add:
 
-Real application-level user authentication
-
-CSRF protection around browser consent endpoints
-
-Secure session management backed by a real session store
-
-Secret-manager/KMS integration
-
-Structured audit logging
-
-IP/user rate limiting
-
-Abuse prevention
-
-Account disconnect/revocation
-
-Key rotation procedures
-
-Database backups and recovery testing
-
-Monitoring and alerting
-
-Stronger request validation
-
-Security headers and a restrictive Content Security Policy
+- Real application-level user authentication
+- CSRF protection around browser consent endpoints
+- Secure session management backed by a real session store
+- Secret-manager/KMS integration
+- Structured audit logging
+- IP/user rate limiting
+- Abuse prevention
+- Account disconnect/revocation
+- Key rotation procedures
+- Database backups and recovery testing
+- Monitoring and alerting
+- Stronger request validation
+- Security headers and a restrictive Content Security Policy
 
 The included browser session is intentionally simple and should not be treated as a complete identity system for a public multi-user SaaS.
 
-15. Error responses
+## 15. Error responses
 
-400 invalid_request
+### `400 invalid_request`
 
 The request body is invalid.
 
 Example:
 
+```json
 {
   "error": "invalid_request"
 }
+```
 
-401 unauthorized
+### `401 unauthorized`
 
 The ChatGPT service token is missing or invalid.
 
 Example:
 
+```json
 {
   "error": "unauthorized"
 }
+```
 
-404 x_account_not_connected
+### `404 x_account_not_connected`
 
 No X account is connected for the authorized user.
 
 Example:
 
+```json
 {
   "error": "x_account_not_connected"
 }
+```
 
-429 x_rate_limited
+### `429 x_rate_limited`
 
 The X API rejected the request because of a rate limit.
 
-502 x_api_error
+### `502 x_api_error`
 
 The downstream X API returned an error.
 
-16. Local development
+## 16. Local development
 
 For local OAuth testing, expose the service over HTTPS.
 
 For example:
 
+```bash
 npm run dev
+```
 
 Then point an HTTPS tunnel to port 3000.
 
 Set:
 
+```dotenv
 PUBLIC_BASE_URL=https://your-tunnel.example
 X_REDIRECT_URI=https://your-tunnel.example/auth/x/callback
+```
 
-The X Developer Portal callback must exactly match X_REDIRECT_URI.
+The X Developer Portal callback must exactly match `X_REDIRECT_URI`.
 
-Because ChatGPT also uses OAuth, the callback URL generated by the Action configuration must be added to CHATGPT_ALLOWED_REDIRECT_URIS.
+Because ChatGPT also uses OAuth, the callback URL generated by the Action configuration must be added to `CHATGPT_ALLOWED_REDIRECT_URIS`.
 
-17. Useful endpoints
+## 17. Useful endpoints
 
-Endpoint
+| Endpoint | Purpose |
+|---|---|
+| `GET /` | Basic service landing page |
+| `GET /health` | Health check |
+| `GET /connect/x` | Start X OAuth |
+| `GET /auth/x/callback` | X OAuth callback |
+| `GET /connected` | Show connected X account |
+| `GET /oauth/authorize` | ChatGPT OAuth authorization |
+| `POST /oauth/approve` | Approve ChatGPT access |
+| `POST /oauth/token` | Exchange authorization code for service token |
+| `GET /v1/x/me` | Get connected X account |
+| `POST /v1/x/posts` | Publish an X post |
+| `GET /openapi.yaml` | ChatGPT Action OpenAPI specification |
 
-Purpose
+## 18. Project structure
 
-GET /
-
-Basic service landing page
-
-GET /health
-
-Health check
-
-GET /connect/x
-
-Start X OAuth
-
-GET /auth/x/callback
-
-X OAuth callback
-
-GET /connected
-
-Show connected X account
-
-GET /oauth/authorize
-
-ChatGPT OAuth authorization
-
-POST /oauth/approve
-
-Approve ChatGPT access
-
-POST /oauth/token
-
-Exchange authorization code for service token
-
-GET /v1/x/me
-
-Get connected X account
-
-POST /v1/x/posts
-
-Publish an X post
-
-GET /openapi.yaml
-
-ChatGPT Action OpenAPI specification
-
-18. Project structure
-
+```text
 x-chatgpt-plugin/
 ├── src/
 │   └── server.ts
@@ -549,25 +552,20 @@ x-chatgpt-plugin/
 ├── package.json
 ├── tsconfig.json
 └── README.md
+```
 
-19. Important notes
+## 19. Important notes
 
 This project is a deployable reference implementation, not a hosted SaaS.
 
 You are responsible for:
 
-Maintaining the X Developer App
-
-Maintaining API access and billing as applicable
-
-Protecting credentials
-
-Operating the server securely
-
-Complying with X developer policies
-
-Complying with applicable privacy, data-retention, and security requirements
-
-Reviewing current ChatGPT Action/OAuth requirements before deployment
+- Maintaining the X Developer App
+- Maintaining API access and billing as applicable
+- Protecting credentials
+- Operating the server securely
+- Complying with X developer policies
+- Complying with applicable privacy, data-retention, and security requirements
+- Reviewing current ChatGPT Action/OAuth requirements before deployment
 
 X and ChatGPT platform behavior can change. Re-check the current documentation when deploying or upgrading the integration.
